@@ -1,13 +1,24 @@
+use bevy::prelude::*;
+
 pub trait Entity {
     const ENTITY_TYPE: EntityType;
+    const SPECIES: Species;
 
     fn new() -> Self;
 
     // fn movement();
-
-    // fn damage(&mut self);
 }
 
 pub enum EntityType {
-    Player
+    Player,
+
+    Enemy,
 }
+
+pub enum Species {
+    Player,
+
+    Zombie,
+    Skeleton,
+}
+

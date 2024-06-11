@@ -1,24 +1,21 @@
-use bevy::prelude::*;
+pub const TOTAL_SPECIES: usize = 3;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BlockType {
-    Air,
-    Stone,
-    Dirt
-}
-
-pub const TOTAL_TYPES: i32 = 3;
-// so stupid
-
+#[derive(Clone, Copy, Debug)]
 pub struct Block {
-    pub blocktype: BlockType
+    pub species: Species,
+}
+impl Block {
+    pub fn new() -> Block {
+        Block {
+            species: Species::Air
+        }
+    }
 }
 
-pub fn type_to_i32(t: BlockType) -> i32 {
-    // stupid i know
-    match t {
-        BlockType::Stone => 1,
-        BlockType::Dirt => 2,
-        _ => 0
-    }
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Species {
+    Air = 0,
+
+    Stone = 1,
+    Dirt = 2,
 }

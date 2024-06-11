@@ -1,113 +1,116 @@
-use crate::{entity::{Entity, EntityType}, camera::PlayerCamera};
-use bevy::{
-    prelude::*,
-    core_pipeline::bloom::BloomSettings
-};
-use bevy_rapier3d::prelude::*;
+use bevy::{core_pipeline::bloom::BloomSettings, input::keyboard::KeyboardInput, prelude::*};
+use bevy_rapier3d::{dynamics::{CoefficientCombineRule, Damping, LockedAxes, RigidBody, Velocity}, geometry::{Collider, Friction}};
+
+use crate::{camera::PlayerCamera, entity::{Entity, EntityType, Species}, utils::reasonably_add_vec};
 
 #[derive(Component)]
 pub struct Player {
-    speed: f32,
-}
-impl Player {
-    pub fn movement(
-        // q_cam: Query<&Transform, With<PlayerCamera>>,
-        mut q: Query<(&mut Velocity, &Transform, &Player)>,
-        key_input: Res<Input<KeyCode>>
-        // time: Res<Time>
-    ) {
-        let (mut velocity, transform, player) = q.get_single_mut().unwrap();
+    pub speed: f32,
+    pub can_jump: bool, // resets to true when touching ground
 
-        if key_input.just_pressed(KeyCode::Space) {
-            velocity.linvel.y = 5.0;
-            // only set if touching the ground
-        }
-
-        let mut final_vel = Vec3::ZERO;
-        if key_input.pressed(KeyCode::W) {
-            final_vel += transform.forward();
-        }
-        if key_input.pressed(KeyCode::S) {
-            final_vel += transform.back();
-        }
-        if key_input.pressed(KeyCode::A) {
-            final_vel += transform.left();
-        }
-        if key_input.pressed(KeyCode::D) {
-            final_vel += transform.right();
-        }
-        if final_vel == Vec3::ZERO {
-            return;
-        }
-        final_vel.y = 0.;
-        final_vel = final_vel.normalize();
-        velocity.linvel.x = (final_vel * player.speed).x;
-        velocity.linvel.z = (final_vel * player.speed).z;
-    }
-
-    pub fn spawn_player(
-        commands: &mut Commands,
-        meshes: &mut ResMut<Assets<Mesh>>,
-    ) {
-        // let cam = commands.spawn(Camera3dBundle {
-        //     camera: Camera {
-        //         hdr: true,
-        //         ..default()
-        //     },
-        //     transform: Transform::from_xyz(0.0, 0.5, 0.0)/*.looking_at(Vec3::ZERO, Vec3::Y)*/,
-        //     ..default()
-        // })
-        let cam = commands.spawn(Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            projection: Projection::Perspective(PerspectiveProjection {
-                fov: std::f32::consts::FRAC_PI_2 * 0.8f32,
-                ..default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0)/*.looking_at(Vec3::ZERO, Vec3::Y)*/,
-            ..default()
-        })
-        .insert(
-            BloomSettings::NATURAL
-        )
-        .insert(
-            PlayerCamera {}
-        ).id();
-
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(shape::Capsule {
-                radius:2.0,
-                depth:1.0,
-                ..default()
-            }.into()),
-            transform: Transform::from_xyz(-5.0, 5.0, 0.0),
-            ..default()
-        })
-        .insert(Player::new())
-        .insert(Collider::capsule_y(0.5, 0.4))
-        .insert(RigidBody::Dynamic)
-        .insert(Velocity{..default()})
-        .insert(Friction {
-            coefficient: 5.0,
-            combine_rule: CoefficientCombineRule::Max
-        })
-        .insert(Damping {
-            linear_damping: 1.0,
-            angular_damping: 1.0
-        })
-        .insert(LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Z | LockedAxes::ROTATION_LOCKED_Y)
-        .add_child(cam);
-    }
+    pub jump_vel: f32,
+    pub sprint_multiplier: f32
 }
 impl Entity for Player {
     const ENTITY_TYPE: EntityType = EntityType::Player;
+    const SPECIES: Species = Species::Player;
 
-    fn new() -> Self {
+    fn new() -> Player {
         Player {
-            speed: 4.0
+            speed: 5.0,
+            // can_jump: false,
+            can_jump: true,
+
+
+            jump_vel: 5.0,
+            sprint_multiplier: 2.0
         }
+    }
+}
+
+impl Player {
+    pub fn spawn(
+        commands: &mut Commands,
+        meshes: &mut ResMut<Assets<Mesh>>
+    ) {
+        let cam = commands.spawn((
+            Camera3dBundle {
+                camera: Camera {
+                    hdr: true,
+                    ..default()
+                },
+                projection: Projection::Perspective(PerspectiveProjection {
+                    fov: std::f32::consts::FRAC_PI_2 * 0.8f32,
+                    ..default()
+                }),
+                transform: Transform::from_xyz(0.0, 1.25, 0.0),
+                ..default()
+            },
+            BloomSettings::NATURAL,
+            PlayerCamera {}
+        ))
+        .id();
+
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Capsule3d::new(1.0, 1.0)),
+                transform: Transform::from_xyz(0.0, 5.0, 0.0),
+                ..default()
+            },
+            Player::new(),
+            Collider::capsule_y(0.5, 1.0),
+            RigidBody::Dynamic,
+            Velocity { ..default() },
+            Friction {
+                coefficient: 5.0,
+                combine_rule: CoefficientCombineRule::Max
+            },
+            Damping {
+                linear_damping: 1.0,
+                angular_damping: 1.0
+            },
+            LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED_Z
+        ))
+        .add_child(cam);
+    }
+
+
+    pub fn movement(
+        mut q: Query<(&mut Velocity, &Transform, &mut Player)>,
+        key_input: Res<ButtonInput<KeyCode>>
+    ) {
+        let (mut vel, transform, mut player) = q.get_single_mut().unwrap();
+
+        let mut final_vel = Vec3::ZERO;
+        // dereferencing to a vec3 : https://docs.rs/bevy/latest/i686-pc-windows-msvc/bevy/math/primitives/struct.Direction3d.html#deref-methods-Vec3
+        if key_input.pressed(KeyCode::KeyW) {
+            final_vel += *transform.forward();
+        }
+        if key_input.pressed(KeyCode::KeyS) {
+            final_vel += *transform.back();
+        }
+        if key_input.pressed(KeyCode::KeyA) {
+            final_vel += *transform.left();
+        }
+        if key_input.pressed(KeyCode::KeyD) {
+            final_vel += *transform.right();
+        }
+        final_vel *= player.speed;
+
+        if key_input.pressed(KeyCode::ShiftLeft) {
+            final_vel *= player.sprint_multiplier;
+        }
+
+        if key_input.pressed(KeyCode::Space) && player.can_jump {
+            final_vel.y += player.jump_vel;
+
+            // player.can_jump = false;
+        }
+
+
+        vel.linvel.x = reasonably_add_vec(vel.linvel.x, final_vel.x);
+        vel.linvel.y = reasonably_add_vec(vel.linvel.y, final_vel.y);
+        vel.linvel.z = reasonably_add_vec(vel.linvel.z, final_vel.z);
     }
 }
 
