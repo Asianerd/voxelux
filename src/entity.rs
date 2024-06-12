@@ -22,3 +22,5 @@ pub enum Species {
     Skeleton,
 }
 
+#[derive(Component)]
+pub struct Feet;

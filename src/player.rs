@@ -1,7 +1,7 @@
 use bevy::{core_pipeline::bloom::BloomSettings, input::keyboard::KeyboardInput, prelude::*};
 use bevy_rapier3d::{dynamics::{CoefficientCombineRule, Damping, LockedAxes, RigidBody, Velocity}, geometry::{Collider, Friction}};
 
-use crate::{camera::PlayerCamera, chunk::Chunk, entity::{Entity, EntityType, Species}, universe::Universe, utils::reasonably_add_vec};
+use crate::{block, camera::PlayerCamera, chunk::{self, Chunk}, entity::{Entity, EntityType, Feet, Species}, universe::Universe, utils::reasonably_add_vec};
 
 #[derive(Component)]
 pub struct Player {
@@ -17,7 +17,7 @@ impl Entity for Player {
 
     fn new() -> Player {
         Player {
-            speed: 5.0,
+            speed: 2.0,
             // can_jump: false,
             can_jump: true,
 
@@ -43,7 +43,7 @@ impl Player {
                     fov: std::f32::consts::FRAC_PI_2 * 0.8f32,
                     ..default()
                 }),
-                transform: Transform::from_xyz(0.0, 0.9, 0.0),
+                transform: Transform::from_xyz(0.0, 1.0, 0.0),
                 ..default()
             },
             BloomSettings::NATURAL,
@@ -51,14 +51,22 @@ impl Player {
         ))
         .id();
 
-        commands.spawn((
+        let player_mesh = commands.spawn((
             PbrBundle {
                 mesh: meshes.add(Capsule3d::new(0.4, 1.0)),
-                transform: Transform::from_xyz(0.0, 5.0, 0.0),
+                transform: Transform::from_xyz(0.0, 0.4, 0.0),
+                ..default()
+            },
+            Collider::capsule_y(0.5, 0.4),
+            LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED_Z
+        )).id();
+        
+        commands.spawn((
+            TransformBundle {
+                local: Transform::from_xyz(0.0, 5.0, 0.0),
                 ..default()
             },
             Player::new(),
-            Collider::capsule_y(0.5, 0.4),
             RigidBody::Dynamic,
             Velocity { ..default() },
             Friction {
@@ -71,7 +79,8 @@ impl Player {
             },
             LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED_Z
         ))
-        .add_child(cam);
+        .add_child(cam)
+        .add_child(player_mesh);
     }
 
     pub fn selection(
@@ -82,20 +91,28 @@ impl Player {
         key_input: Res<ButtonInput<KeyCode>>
     ) {
         let (player_transform, mut player) = p.get_single_mut().unwrap();
-        let chunk_pos = Chunk::tile_to_chunk_pos(player_transform.translation);
+        let chunk_pos = Chunk::real_to_chunk(player_transform.translation);
 
         match u.chunks.get_mut(&chunk_pos) {
             Some(chunk_entity) => {
-                let c = c.get_mut(*chunk_entity).unwrap();
+                let mut c = c.get_mut(*chunk_entity).unwrap();
 
-                let block = c.get_at(
-                    player_transform.translation.x as i32,
-                    player_transform.translation.y as i32 - 1,
-                    player_transform.translation.z as i32,
-                    &[[[None; 3]; 3]; 3]
+                let target = (
+                    chunk::Chunk::real_to_tile_single(player_transform.translation.x),
+                    (player_transform.translation.y - 1.0) as i32,
+                    chunk::Chunk::real_to_tile_single(player_transform.translation.z)
                 );
 
-                println!("{block:?} in {chunk_pos:?}");
+                if c.get_at(target.0,target.1,target.2,&[[None; 3]; 3]) != block::Species::Air {
+                    c.replace_block(block::Block {
+                        species: block::Species::Air
+                    }, target);
+                }
+
+                // println!("{} {} {}", chunk::Chunk::real_to_tile(player_transform.translation.x, chunk::CHUNK_SIZE as f32),
+                //     (player_transform.translation.y - 1.0) as i32,
+                //     chunk::Chunk::real_to_tile(player_transform.translation.z, chunk::CHUNK_SIZE as f32));
+                // println!("{block:?} at {} in {chunk_pos:?}", (player_transform.translation.y - 1.0) as i32);
             },
             None => {}
         }
@@ -122,6 +139,7 @@ impl Player {
         if key_input.pressed(KeyCode::KeyD) {
             final_vel += *transform.right();
         }
+        final_vel = final_vel.normalize_or_zero();
         final_vel *= player.speed;
 
         if key_input.pressed(KeyCode::ShiftLeft) {
@@ -140,4 +158,3 @@ impl Player {
         vel.linvel.z = reasonably_add_vec(vel.linvel.z, final_vel.z);
     }
 }
-

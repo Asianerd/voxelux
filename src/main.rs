@@ -47,6 +47,7 @@ fn main() {
         //             features: WgpuFeatures::POLYGON_MODE_LINE,
         //             ..default()
         //         }),
+        //         ..default()
         //     }),
         //     WireframePlugin,
         // ))
@@ -72,7 +73,8 @@ fn main() {
                 quit_on_escape,
                 player::Player::movement,
                 player::Player::selection,
-                camera::PlayerCamera::camera_movement
+                camera::PlayerCamera::camera_movement,
+                chunk::Chunk::update_all
             )
         )
 
@@ -95,6 +97,7 @@ fn startup(
     asset_server: Res<AssetServer>
 ) {
     commands.spawn(PbrBundle {
+        transform:Transform::from_xyz(0.0, -5.0, 0.0),
         mesh: meshes.add(Cuboid::new(50.0, 2.0, 50.0)),
         material: materials.add(Color::GREEN),
         ..default()
