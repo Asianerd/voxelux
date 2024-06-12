@@ -1,13 +1,13 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::{Deref, DerefMut}};
 
 use bevy::{prelude::*, render::{mesh::PrimitiveTopology, render_asset::RenderAssetUsages, render_resource::Face}};
 use bevy_rapier3d::geometry::Collider;
 
-use crate::{chunk::{self}, player::Player};
+use crate::{chunk::{self, Chunk}, player::Player};
 
-#[derive(Resource)]
+#[derive(Default, Resource)]
 pub struct Universe {
-    pub chunks: HashMap<(i32, i32, i32), bool>,
+    pub chunks: HashMap<(i32, i32, i32), Entity>,
     // pub chunks: Vec<(i32, i32, i32)>,
 
     pub load_distance: i32
@@ -16,7 +16,7 @@ impl Universe {
     pub fn new() -> Universe {
         Universe {
             chunks: HashMap::new(),
-            load_distance: 10
+            load_distance: 3
         }
     }
 
@@ -43,8 +43,6 @@ impl Universe {
                     let cz = chunk_pos.2 + rz;
 
                     if !universe.chunks.contains_key(&(cx, cy, cz)) {
-                        universe.chunks.insert((cx, cy, cz), true);
-
                         let fx = cx as f32;
                         let fy = cy as f32;
                         let fz = cz as f32;
@@ -55,7 +53,7 @@ impl Universe {
                         let (v, i) = c.generate_trimesh_data([[[None; 3]; 3]; 3]);
 
                         // create chunk
-                        commands.spawn((
+                        let c = commands.spawn((
                             PbrBundle {
                                 mesh: meshes.add(m),
                                 material: materials.add(
@@ -77,10 +75,30 @@ impl Universe {
                             },
                             c,
                             Collider::trimesh(v, i)
-                        ));
+                        ))
+                        .id();
+
+                        universe.chunks.insert((cx, cy, cz), c);
                     }
                 }
             }
         }
     }
+
+    pub fn update_chunks() {
+
+    }
 }
+// impl Deref for Universe {
+//     type Target = Universe;
+
+//     fn deref(&self) -> &Self::Target {
+//         &self
+//     }
+// }
+
+// impl DerefMut for Universe {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         self
+//     }
+// }

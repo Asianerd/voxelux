@@ -1,7 +1,7 @@
 use bevy::{core_pipeline::bloom::BloomSettings, input::keyboard::KeyboardInput, prelude::*};
 use bevy_rapier3d::{dynamics::{CoefficientCombineRule, Damping, LockedAxes, RigidBody, Velocity}, geometry::{Collider, Friction}};
 
-use crate::{camera::PlayerCamera, entity::{Entity, EntityType, Species}, utils::reasonably_add_vec};
+use crate::{camera::PlayerCamera, chunk::Chunk, entity::{Entity, EntityType, Species}, universe::Universe, utils::reasonably_add_vec};
 
 #[derive(Component)]
 pub struct Player {
@@ -43,7 +43,7 @@ impl Player {
                     fov: std::f32::consts::FRAC_PI_2 * 0.8f32,
                     ..default()
                 }),
-                transform: Transform::from_xyz(0.0, 1.25, 0.0),
+                transform: Transform::from_xyz(0.0, 0.9, 0.0),
                 ..default()
             },
             BloomSettings::NATURAL,
@@ -53,12 +53,12 @@ impl Player {
 
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Capsule3d::new(1.0, 1.0)),
+                mesh: meshes.add(Capsule3d::new(0.4, 1.0)),
                 transform: Transform::from_xyz(0.0, 5.0, 0.0),
                 ..default()
             },
             Player::new(),
-            Collider::capsule_y(0.5, 1.0),
+            Collider::capsule_y(0.5, 0.4),
             RigidBody::Dynamic,
             Velocity { ..default() },
             Friction {
@@ -72,6 +72,33 @@ impl Player {
             LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED_Z
         ))
         .add_child(cam);
+    }
+
+    pub fn selection(
+        mut u: ResMut<Universe>,
+        mut p: Query<(&Transform, &mut Player)>,
+        mut c: Query<&mut Chunk>,
+
+        key_input: Res<ButtonInput<KeyCode>>
+    ) {
+        let (player_transform, mut player) = p.get_single_mut().unwrap();
+        let chunk_pos = Chunk::tile_to_chunk_pos(player_transform.translation);
+
+        match u.chunks.get_mut(&chunk_pos) {
+            Some(chunk_entity) => {
+                let c = c.get_mut(*chunk_entity).unwrap();
+
+                let block = c.get_at(
+                    player_transform.translation.x as i32,
+                    player_transform.translation.y as i32 - 1,
+                    player_transform.translation.z as i32,
+                    &[[[None; 3]; 3]; 3]
+                );
+
+                println!("{block:?} in {chunk_pos:?}");
+            },
+            None => {}
+        }
     }
 
 

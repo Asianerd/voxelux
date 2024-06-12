@@ -65,7 +65,8 @@ impl Chunk {
                         continue;
                     }
 
-                    b[y][x][z] = if rng.gen_bool(0.5) { block::Block { species: block::Species::Stone } } else { block::Block { species: block::Species::Dirt } };
+                    // b[y][x][z] = if rng.gen_bool(0.5) { block::Block { species: block::Species::Stone } } else { block::Block { species: block::Species::Dirt } };
+                    b[y][x][z] = block::Block { species: block::Species::Stone };
                 }
             }
         }
@@ -77,8 +78,9 @@ impl Chunk {
             requires_collider_update: true
         }
     }
-
-    fn get_at(&self, x: i32, y: i32, z: i32, neighbours: &[[[Option<&[[[block::Species; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]>; 3]; 3]; 3]) -> block::Species {
+    
+    // #region get at
+    pub fn get_at(&self, x: i32, y: i32, z: i32, neighbours: &[[[Option<&[[[block::Species; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]>; 3]; 3]; 3]) -> block::Species {
         let cs = CHUNK_SIZE as i32;
 
         let mut ux = x as usize;
@@ -140,11 +142,11 @@ impl Chunk {
         r.unwrap()[uy][ux][uz]
     }
 
-    fn get_at_without_check(&self, x: i32, y: i32, z: i32) -> block::Species {
+    pub fn get_at_without_check(&self, x: i32, y: i32, z: i32) -> block::Species {
         self.blocks[y as usize][x as usize][z as usize].species
     }
 
-    fn get_at_decide(&self, x: i32, y: i32, z: i32, neighbours: &[[[Option<&[[[block::Species; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]>; 3]; 3]; 3], edge: bool, t: &mut block::Species) -> block::Species {
+    pub fn get_at_decide(&self, x: i32, y: i32, z: i32, neighbours: &[[[Option<&[[[block::Species; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]>; 3]; 3]; 3], edge: bool, t: &mut block::Species) -> block::Species {
         if edge {
             *t = self.get_at(x, y, z, neighbours);
             return *t;
@@ -152,7 +154,9 @@ impl Chunk {
         *t = self.get_at_without_check(x, y, z);
         *t
     }
+    // #endregion
 
+    // #region mesh generation
     pub fn generate_trimesh_data(&self, neighbours: [[[Option<&[[[block::Species; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]>; 3]; 3]; 3]) -> (Vec<Vec3>, Vec<[u32; 3]>) {
         let mut vertices: Vec<Vec3> = vec![];
         let mut indices: Vec<[u32; 3]> = vec![];
@@ -288,7 +292,6 @@ impl Chunk {
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uv);
         mesh.insert_indices(Indices::U32(indices));
-        // mesh.set_indices(Some(Indices::U32(indices)));
     }
 
     fn add_attributes(
@@ -383,7 +386,7 @@ impl Chunk {
 
         *index_count += 4;
     }
-
+    // #endregion
 
     // #region utils
     pub fn snap_axis_to_chunk<T: Into<f32>>(i: T) -> i32 {
