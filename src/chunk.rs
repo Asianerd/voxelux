@@ -7,8 +7,8 @@ use crate::{block::{self, Block}, universe::Universe};
 
 use rand::Rng;
 
-pub const CHUNK_HEIGHT: usize = 256;
-pub const CHUNK_SIZE: usize = 8;
+pub const CHUNK_HEIGHT: usize = 12;
+pub const CHUNK_SIZE: usize = 4;
 // 8*8*8 block size
 
 #[derive(Component)]
@@ -18,7 +18,7 @@ pub struct Chunk {
     pub blocks: [[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_HEIGHT],
 
     pub requires_update: bool,
-    pub requires_collider_update: bool
+    pub requires_mesh_update: bool
 }
 impl Chunk {
     // pub fn new(position: (i32, i32, i32)) -> Chunk {
@@ -65,17 +65,23 @@ impl Chunk {
                     //     continue;
                     // }
 
-                    if rng.gen_bool(0.95) {
-                        continue;
-                    }
+                    // if rng.gen_bool(0.95) {
+                    //     continue;
+                    // }
 
                     // if ((pos.0 * 2) + pos.1) != (wy - 5) {
                     //     continue;
                     // }
 
-                    // if y != 3 {
-                    //     continue;
-                    // }
+                    if !((y == 3) || (y == 5)) {
+                        continue;
+                    }
+
+                    if y == 5 {
+                        if rng.gen_bool(0.95) {
+                            continue;
+                        }
+                    }
 
                     // b[y][x][z] = if rng.gen_bool(0.5) { block::Block { species: block::Species::Stone } } else { block::Block { species: block::Species::Dirt } };
                     b[y][x][z] = block::Block { species: block::Species::Stone };
@@ -87,14 +93,61 @@ impl Chunk {
             position: pos,
             blocks: b,
             requires_update: true,
-            requires_collider_update: true
+            requires_mesh_update: true,
         }
     }
 
-    pub fn replace_block(&mut self, b: Block, pos: (i32, i32, i32)) {
+    pub fn replace_block(chunk_pos: (i32, i32), universe: &mut ResMut<Universe>, chunk_query: &mut Query<&mut Chunk>, b: Block, pos: (i32, i32, i32)) {
+        let target = universe.chunks.get_mut(&chunk_pos);
+        if target.is_none() {
+            return;
+        }
+        let mut target = chunk_query.get_mut(*target.unwrap()).unwrap();
+
+        target.blocks[pos.1 as usize][pos.0 as usize][pos.2 as usize] = b;
+        target.requires_mesh_update = true;
+        Chunk::update_neighbours(chunk_pos, universe, chunk_query);
+    }
+
+    pub fn update_neighbours(chunk_pos: (i32, i32), universe: &mut ResMut<Universe>, chunk_query: &mut Query<&mut Chunk>) {
+        for offset in [
+            (0, 1),
+            (1, 0),
+            (0, -1),
+            (-1, 0)
+        ] {
+            match universe.chunks.get_mut(&(
+                chunk_pos.0 + offset.0,
+                chunk_pos.1 + offset.1
+            )) {
+                Some(c) => {
+                    chunk_query.get_mut(*c).unwrap().requires_mesh_update = true;
+                },
+                None => {}
+            }
+        }
+    }
+
+    pub fn _replace_block(&mut self, chunks: &mut HashMap<(i32, i32), Chunk>, b: Block, pos: (i32, i32, i32)) {
         self.blocks[pos.1 as usize][pos.0 as usize][pos.2 as usize] = b;
-        self.requires_update = true;
-        self.requires_collider_update = true;
+        self.requires_mesh_update = true;
+
+        for offset in [
+            (0, 1),
+            (1, 0),
+            (0, -1),
+            (-1, 0)
+        ] {
+            match chunks.get_mut(&(
+                self.position.0 + offset.0,
+                self.position.1 + offset.1
+            )) {
+                Some(c) => {
+                    c.requires_mesh_update = true;
+                },
+                None => {}
+            }
+        }
     }
     
     // #region get at
@@ -112,24 +165,15 @@ impl Chunk {
         // let mut ny = 1usize;
         let mut nz = 1usize;
 
-        let mut y_neighbour_flag = false;
-
-        // if (y >= cs) || (x >= cs) || (z >= cs) || (y < 0) || (x < 0) || (z < 0) {
-        //     // oob
-        //     return block::Species::Air;
-        // }
-
         // run checks for x and y axis only
 
         let mut oob = false;
 
         if y >= (CHUNK_HEIGHT as i32) {
             oob = true;
-            y_neighbour_flag = true;
             uy = 0;
         } else if y < 0 {
             oob = true;
-            y_neighbour_flag = true;
             uy = CHUNK_HEIGHT - 1;
         }
 
@@ -158,18 +202,26 @@ impl Chunk {
             return self.blocks[uy][ux][uz].species;
         }
 
-        if y_neighbour_flag {
-            // println!("oob : y = {y}");
+        // if oob_y {
+        //     // println!("oob : y = {y}");
 
-            let r = neighbours[nx][nz];
-            if r.is_none() {
-                return block::Species::Air;
-            }
-            return r.unwrap()[uy][ux][uz];
+        //     let r = neighbours[nx][nz];
+        //     if r.is_none() {
+        //         println!("None at : {nx}, {nz}");
+        //         return block::Species::Air;
+        //     }
+        //     return r.unwrap()[uy][ux][uz];
+        // }
+
+        // TODO : revise? didnt properly fix this bug, might break in the future
+        let r = neighbours[nx][nz];
+        if r.is_none() {
+            return block::Species::Air;
         }
+        r.unwrap()[uy][ux][uz]
         // println!("oob {uy} : {ux} : {uz}");
         // println!("\t{y} : {x} : {z}");
-        block::Species::Air
+        // block::Species::Air
     }
 
     pub fn get_at_without_check(&self, x: i32, y: i32, z: i32) -> block::Species {
@@ -186,8 +238,28 @@ impl Chunk {
     }
     // #endregion
 
-    // #region mesh generation
     pub fn update_all(
+        mut universe: ResMut<Universe>,
+        mut chunk_query: Query<&mut Chunk>
+    ) {
+        let mut to_be_updated: Vec<(i32, i32)> = vec![];
+
+        for (k, v) in &universe.chunks {
+            let mut chunk = chunk_query.get_mut(*v).unwrap();
+            if !chunk.requires_update {
+                continue;
+            }
+
+            chunk.requires_update = false;
+            to_be_updated.push(*k);
+        }
+
+        for i in to_be_updated {
+            Chunk::update_neighbours(i, &mut universe, &mut chunk_query);
+        }
+    }
+
+    pub fn update_mesh_all(
         mut commands: Commands,
         universe: ResMut<Universe>,
         mut meshes: ResMut<Assets<Mesh>>,
@@ -212,10 +284,12 @@ impl Chunk {
         let mut q_all = q.iter_many_mut(universe.chunks.values().collect::<Vec<&Entity>>());
     
         while let Some((entity, mut chunk, mut collider)) = q_all.fetch_next() {
-            if !chunk.requires_update {
+            if !chunk.requires_mesh_update {
                 continue;
             }
-            chunk.requires_update = false;
+            chunk.requires_mesh_update = false;
+
+            // println!("{:?}", neighbours.len());
     
             let mesh_handle = handle_query.get_mut(entity).unwrap();
             let mesh = meshes.get_mut(mesh_handle.id()).unwrap();
@@ -258,7 +332,7 @@ impl Chunk {
                         )
                     },
                     None => None
-                }
+                };
     
                 // if neighbours.get(&target).is_some() { // redundant?
                 //     continue;
@@ -276,6 +350,7 @@ impl Chunk {
         }
     }
 
+    // #region mesh generation
     pub fn generate_trimesh_data(&self, neighbours: [[Option<[[[block::Species; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_HEIGHT]>; 3]; 3]) -> (Vec<Vec3>, Vec<[u32; 3]>) {
         let mut vertices: Vec<Vec3> = vec![];
         let mut indices: Vec<[u32; 3]> = vec![];

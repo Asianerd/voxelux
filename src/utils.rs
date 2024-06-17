@@ -28,3 +28,15 @@ pub fn reasonably_add_vec(target: f32, current: f32) -> f32 {
         target + current
     }
 }
+
+pub fn slightly_round_floats(i: f32, custom_wiggle_room: Option<f32>) -> f32 {
+    // 0.999999 -> 1.0
+    let w = custom_wiggle_room.unwrap_or(0.000005);
+    if (i + w) >= i.ceil() {
+        return i.ceil();
+    }
+    if (i - w) <= i.floor() {
+        return i.floor();
+    }
+    i
+}

@@ -35,7 +35,6 @@ mod player;
 
 fn main() {
     // run with cargo run --features bevy/dynamic_linking
-
     App::new()
         .add_plugins(
             DefaultPlugins
@@ -64,17 +63,25 @@ fn main() {
         .add_systems(Startup,
             (
                 startup,
-                universe::Universe::generate.after(startup)
             )
         )
 
         .add_systems(Update, 
             (
                 quit_on_escape,
-                player::Player::movement,
-                player::Player::selection,
+
+                chunk::Chunk::update_mesh_all,
+                chunk::Chunk::update_all,
+
                 camera::PlayerCamera::camera_movement,
-                chunk::Chunk::update_all
+
+                player::Player::movement,
+                // player::Player::selection,
+                player::Player::raycast_block_target,
+                player::Player::mouse_events,
+                // player::Player::generate_chunks,
+
+                universe::Universe::generate
             )
         )
 
@@ -113,6 +120,18 @@ fn startup(
         transform: Transform::from_xyz(0.0, 10.0, 0.0),
         ..default()
     });
+
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Capsule3d::new(0.6, 0.0)),
+            material: materials.add(StandardMaterial {
+                base_color: Color::Rgba { red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0 },
+                ..default()
+            }),
+            ..default()
+        },
+        entity::Debug
+    ));
 
     player::Player::spawn(&mut commands, &mut meshes);
 }

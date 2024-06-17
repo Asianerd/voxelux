@@ -23,4 +23,4 @@ pub enum Species {
 }
 
 #[derive(Component)]
-pub struct Feet;
+pub struct Debug;

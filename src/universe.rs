@@ -16,7 +16,7 @@ impl Universe {
     pub fn new() -> Universe {
         Universe {
             chunks: HashMap::new(),
-            load_distance: 1
+            load_distance: 5
         }
     }
 
@@ -29,7 +29,7 @@ impl Universe {
 
         player: Query<&Transform, With<Player>>,
 
-        // chunks: Query<(&Transform, &Chunk)>,
+        mut chunk_query: Query<&mut Chunk>,
 
         asset_server: Res<AssetServer>
     ) {
@@ -44,7 +44,7 @@ impl Universe {
                     let fx = cx as f32;
                     let fz = cz as f32;
 
-                    let c = chunk::Chunk::new((cx, cz));
+                    let mut c = chunk::Chunk::new((cx, cz));
                     let mut m = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::all());
                     c.update_mesh(&mut m, [[None; 3]; 3]);
                     let (v, i) = c.generate_trimesh_data([[None; 3]; 3]);
@@ -77,6 +77,10 @@ impl Universe {
                     .id();
 
                     universe.chunks.insert((cx, cz), c);
+
+                    // chunk::Chunk::update_neighbours((cx, cz), &mut universe, &mut chunk_query);
+
+                    // println!("{:?}", universe.chunks);
                 }
             }
         }
