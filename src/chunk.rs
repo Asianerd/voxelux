@@ -7,8 +7,8 @@ use crate::{block::{self, Block}, universe::Universe};
 
 use rand::Rng;
 
-pub const CHUNK_HEIGHT: usize = 12;
-pub const CHUNK_SIZE: usize = 4;
+pub const CHUNK_HEIGHT: usize = 128;
+pub const CHUNK_SIZE: usize = 8;
 // 8*8*8 block size
 
 #[derive(Component)]
@@ -537,24 +537,18 @@ impl Chunk {
         *index_count += 4;
     }
 
-    fn fetch_uv(t: block::Species, side: i32) -> [[f32; 2]; 4] {
-        let offset: f32 = t as i32 as f32;
+    pub fn fetch_uv(t: block::Species, side: i32) -> [[f32; 2]; 4] {
+        let x_offset = t as i32 as f32;
+        let total =  block::TOTAL_SPECIES as f32;
 
-        // let y = offset / (block::TOTAL_SPECIES as f32);
-        // let increment = 1f32 / (block::TOTAL_SPECIES as f32);
+        let x_start = (x_offset) / total;
+        let x_end = (x_offset + 1f32) / total;
 
-        let total = block::TOTAL_SPECIES as f32;
+        // (side / 6) / total => side / 6*total
+        let y_start = (side as f32 - 1f32) / 6f32;
+        let y_end = (side as f32) / 6f32;
 
-        let start = (offset / total) + (1f32 / total) * ((side as f32 - 1f32) / 6 as f32);
-        let end = (offset / total) + (1f32 / total) * ((side as f32) / 6 as f32);
-
-        // let increment = (1 as f32 / block::TOTAL_SPECIES as f32) as f32;
-        // let y = offset * increment * ((side as f32) / 6f32);
-
-        // [[0.0, y + increment], [0.0, y], [1.0, y], [1.0, y + increment]]
-        [[1.0, end], [1.0, start], [0.0, start], [0.0, end]]
-
-        // [[0.0; 2]; 4]
+        [[x_start, y_end], [x_start, y_start], [x_end, y_start], [x_end, y_end]]
     }
 
     fn add_trimesh_attributes(v: [[f32; 3]; 4], vertices: &mut Vec<Vec3>, indices: &mut Vec<[u32; 3]>, index_count: &mut u32) {

@@ -35,6 +35,7 @@ mod player;
 
 fn main() {
     // run with cargo run --features bevy/dynamic_linking
+    
     App::new()
         .add_plugins(
             DefaultPlugins

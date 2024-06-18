@@ -96,42 +96,6 @@ impl Player {
         .add_child(player_mesh);
     }
 
-    // pub fn selection(
-    //     mut u: ResMut<Universe>,
-    //     mut p: Query<(&Transform, &mut Player)>,
-    //     mut c: Query<&mut Chunk>,
-
-    //     key_input: Res<ButtonInput<KeyCode>>
-    // ) {
-    //     let (player_transform, mut player) = p.get_single_mut().unwrap();
-    //     let chunk_pos = Chunk::real_to_chunk(player_transform.translation);
-
-    //     match u.chunks.get_mut(&chunk_pos) {
-    //         Some(chunk_entity) => {
-    //             // println!("{:?}", );
-    //             let mut c = c.get_mut(*chunk_entity).unwrap;
-
-    //             let target = (
-    //                 chunk::Chunk::real_to_tile_single(player_transform.translation.x),
-    //                 (player_transform.translation.y - 1.0) as i32,
-    //                 chunk::Chunk::real_to_tile_single(player_transform.translation.z)
-    //             );
-
-    //             if c.get_at(target.0,target.1,target.2,&[[None; 3]; 3]) != block::Species::Air {
-    //                 // c.replace_block(block::Block {
-    //                 //     species: block::Species::Air
-    //                 // }, target);
-    //             }
-
-    //             // println!("{} {} {}", chunk::Chunk::real_to_tile(player_transform.translation.x, chunk::CHUNK_SIZE as f32),
-    //             //     (player_transform.translation.y - 1.0) as i32,
-    //             //     chunk::Chunk::real_to_tile(player_transform.translation.z, chunk::CHUNK_SIZE as f32));
-    //             // println!("{block:?} at {} in {chunk_pos:?}", (player_transform.translation.y - 1.0) as i32);
-    //         },
-    //         None => {}
-    //     }
-    // }
-
 
     pub fn movement(
         mut q: Query<(&mut Velocity, &Transform, &mut Player)>,
@@ -211,31 +175,7 @@ impl Player {
 
             player.targeted_block = hit_point.clone();
             player.targeted_normal = hit_normal.clone();
-
-            // if let Ok(mut chunk) = chunk.get_mut(entity) {
-            //     chunk.replace_block(block::Block {
-            //         species: block::Species::Dirt
-            //     }, chunk::Chunk::real_to_tile(hit_point));
-            // }
         }
-    
-        // rapier_context.intersections_with_ray(
-        //     ray_pos,
-        //     ray_dir,
-        //     max_toi,
-        //     solid,
-        //     filter,
-        //     |entity, intersection| {
-        //         // Callback called on each collider hit by the ray.
-        //         let hit_point = intersection.point;
-        //         let hit_normal = intersection.normal;
-        //         println!(
-        //             "Entity {:?} hit at point {} with normal {}",
-        //             entity, hit_point, hit_normal
-        //         );
-        //         true // Return `false` instead if we want to stop searching for other hits.
-        //     },
-        // );
     }
 
     pub fn mouse_events(
@@ -259,16 +199,6 @@ impl Player {
                 },
                 chunk::Chunk::real_to_tile(player.targeted_block)
             );
-            // match universe.chunks.get(&chunk_pos) {
-            //     Some(e) => {
-            //         if let Ok(mut chunk) = chunk.get_mut(*e) {
-            //             chunk._replace_block(block::Block {
-            //                 species: block::Species::Air
-            //             }, chunk::Chunk::real_to_tile(player.targeted_block));
-            //         }
-            //     },
-            //     None => {}
-            // }
         }
         if mouse_input.just_pressed(MouseButton::Right) {
             let chunk_pos = Chunk::real_to_chunk(player.targeted_block + player.targeted_normal);
@@ -281,16 +211,6 @@ impl Player {
                 },
                 chunk::Chunk::real_to_tile(player.targeted_block + player.targeted_normal)
             );
-            // match universe.chunks.get(&chunk_pos) {
-            //     Some(e) => {
-            //         if let Ok(mut chunk) = chunk.get_mut(*e) {
-            //             chunk._replace_block(block::Block {
-            //                 species: block::Species::Dirt
-            //             }, chunk::Chunk::real_to_tile(player.targeted_block + player.targeted_normal));
-            //         }
-            //     },
-            //     None => {}
-            // }
         }
     }
 }
